@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Solar Monitor</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --solar: #facc15;
+      --usage: #38bdf8;
+      --grid-pos: #f87171;
+      --grid-neg: #4ade80;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0; padding: 16px;
+      font-family: 'Google Sans', Roboto, system-ui, sans-serif;
+      background: var(--bg); color: var(--text);
+      max-width: 520px; margin-inline: auto;
+      padding-bottom: 48px;
+    }
+    header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 16px;
+    }
+    h1 { font-size: 1.25rem; margin: 0; display: flex; align-items: center; gap: 8px; }
+    .sub { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+    .icon-btn {
+      background: var(--card); border: 1px solid var(--border); color: var(--text);
+      border-radius: 12px; padding: 8px 12px; font-size: 0.85rem; cursor: pointer;
+    }
+    .alert {
+      background: rgba(248, 113, 113, 0.15); border: 1px solid var(--grid-pos);
+      color: #fca5a5; padding: 12px; border-radius: 12px; margin-bottom: 14px;
+      font-size: 0.85rem; display: none;
+    }
+    .grid-3 {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px;
+    }
+    .card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 16px; padding: 14px;
+    }
+    .label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+    .val { font-size: 1.45rem; font-weight: 700; margin-top: 6px; }
+    .unit { font-size: 0.8rem; font-weight: 400; color: var(--muted); }
+    .solar-txt { color: var(--solar); }
+    .usage-txt { color: var(--usage); }
+    
+    .section-header {
+      display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;
+    }
+    .section-title { font-size: 0.95rem; font-weight: 600; margin: 0; }
+    .tabs {
+      display: flex; background: var(--bg); border-radius: 10px; padding: 3px; border: 1px solid var(--border);
+    }
+    .tab {
+      background: transparent; border: none; color: var(--muted);
+      padding: 5px 12px; border-radius: 7px; font-size: 0.78rem; font-weight: 600; cursor: pointer;
+    }
+    .tab.active { background: var(--card); color: var(--text); }
+
+    .summary-row {
+      display: flex; justify-content: space-between; font-size: 0.8rem;
+      color: var(--muted); border-top: 1px solid var(--border);
+      padding-top: 10px; margin-top: 10px;
+    }
+    .summary-row strong { color: var(--text); }
+
+    /* 23-Panel Array Grid */
+    .panel-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px;
+    }
+    .panel-cell {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 10px; padding: 8px; text-align: center;
+    }
+    .panel-id { font-size: 0.68rem; color: var(--muted); }
+    .panel-w { font-size: 0.95rem; font-weight: 700; margin-top: 2px; }
+
+    /* Settings Modal */
+    .modal-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+      display: none; align-items: center; justify-content: center; padding: 16px; z-index: 50;
+    }
+    .modal {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 18px; padding: 20px; width: 100%; max-width: 400px;
+    }
+    input {
+      width: 100%; padding: 10px 12px; border-radius: 10px;
+      border: 1px solid var(--border); background: var(--bg); color: var(--text);
+      margin-top: 6px; margin-bottom: 14px; font-size: 0.9rem;
+    }
+    .primary-btn {
+      width: 100%; padding: 12px; border-radius: 10px; border: none;
+      background: var(--solar); color: #0f172a; font-weight: 700; font-size: 0.95rem; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div>
+      <h1>☀️ PVS6 Solar Monitor</h1>
+      <div class="sub" id="lastUpdated">Tap ⚙ to configure connection</div>
+    </div>
+    <div style="display:flex; gap:8px;">
+      <button class="icon-btn" onclick="loadData(currentRange)">↻</button>
+      <button class="icon-btn" onclick="openSettings()">⚙</button>
+    </div>
+  </header>
+
+  <div class="alert" id="errorBanner"></div>
+
+  <!-- Latest Reading Snapshot -->
+  <div class="grid-3">
+    <div class="card">
+      <div class="label">Solar Now</div>
+      <div class="val solar-txt"><span id="nowSolar">--</span> <span class="unit">kW</span></div>
+    </div>
+    <div class="card">
+      <div class="label">Home Load</div>
+      <div class="val usage-txt"><span id="nowUsage">--</span> <span class="unit">kW</span></div>
+    </div>
+    <div class="card">
+      <div class="label" id="gridLabel">Grid Net</div>
+      <div class="val" id="nowGridWrap"><span id="nowGrid">--</span> <span class="unit">kW</span></div>
+    </div>
+  </div>
+
+  <!-- Historical Chart Card -->
+  <div class="card" style="margin-bottom: 14px;">
+    <div class="section-header">
+      <h2 class="section-title">Power History (kW)</h2>
+      <div class="tabs">
+        <button class="tab active" id="tab-24h" onclick="loadData('24h')">24H</button>
+        <button class="tab" id="tab-7d" onclick="loadData('7d')">7D</button>
+        <button class="tab" id="tab-30d" onclick="loadData('30d')">30D</button>
+      </div>
+    </div>
+    <div style="position: relative; height: 220px;">
+      <canvas id="historyChart"></canvas>
+    </div>
+    <div class="summary-row">
+      <span>Produced: <strong id="sumSolar">-- kWh</strong></span>
+      <span>Used: <strong id="sumUsage">-- kWh</strong></span>
+      <span>Peak: <strong id="sumPeak">-- kW</strong></span>
+    </div>
+  </div>
+
+  <!-- 23 Microinverters Breakdown -->
+  <div class="card">
+    <div class="section-header" style="margin-bottom: 4px;">
+      <h2 class="section-title">Microinverters (23 Panels)</h2>
+      <span class="sub" id="panelUnitLabel">Watts (W)</span>
+    </div>
+    <div class="panel-grid" id="panelGrid"></div>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal-backdrop" id="settingsModal">
+    <div class="modal">
+      <h2 style="margin-top:0; font-size:1.1rem;">Connection Settings</h2>
+      <label class="label">Google Apps Script Web App URL</label>
+      <input type="url" id="inputUrl" placeholder="https://script.google.com/macros/s/.../exec">
+      <label class="label">Secret Passcode (APP_SECRET_KEY)</label>
+      <input type="password" id="inputKey" placeholder="Your secret passcode">
+      <button class="primary-btn" onclick="saveSettings()">Save & Connect</button>
+    </div>
+  </div>
+
+  <script>
+    let currentRange = '24h';
+    let chartInstance = null;
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
+
+    function openSettings() {
+      document.getElementById('inputUrl').value = localStorage.getItem('solar_url') || '';
+      document.getElementById('inputKey').value = localStorage.getItem('solar_key') || '';
+      document.getElementById('settingsModal').style.display = 'flex';
+    }
+
+    function saveSettings() {
+      const url = document.getElementById('inputUrl').value.trim();
+      const key = document.getElementById('inputKey').value.trim();
+      localStorage.setItem('solar_url', url);
+      localStorage.setItem('solar_key', key);
+      document.getElementById('settingsModal').style.display = 'none';
+      loadData(currentRange);
+    }
+
+    async function loadData(range) {
+      currentRange = range;
+      ['24h', '7d', '30d'].forEach(r => {
+        document.getElementById('tab-' + r).classList.toggle('active', r === range);
+      });
+
+      const baseUrl = localStorage.getItem('solar_url');
+      const key = localStorage.getItem('solar_key');
+      if (!baseUrl || !key) {
+        openSettings();
+        return;
+      }
+
+      document.getElementById('lastUpdated').innerText = 'Syncing with Google Sheets...';
+      const banner = document.getElementById('errorBanner');
+      banner.style.display = 'none';
+
+      try {
+        const res = await fetch(`${baseUrl}?range=${range}&key=${encodeURIComponent(key)}`);
+        const data = await res.json();
+
+        if (data.error) throw new Error(data.error);
+
+        // 1. Update Latest Snapshot
+        const lat = data.latest;
+        document.getElementById('nowSolar').innerText = lat.solarKw.toFixed(2);
+        document.getElementById('nowUsage').innerText = lat.usageKw.toFixed(2);
+
+        const gridVal = lat.gridKw;
+        document.getElementById('nowGrid').innerText = Math.abs(gridVal).toFixed(2);
+        document.getElementById('gridLabel').innerText = gridVal < 0 ? 'Grid Export' : 'Grid Import';
+        document.getElementById('nowGridWrap').style.color = gridVal <= 0 ? 'var(--grid-neg)' : 'var(--grid-pos)';
+
+        const ts = new Date(lat.timestamp);
+        document.getElementById('lastUpdated').innerText =
+          'Last reading: ' + (isNaN(ts) ? lat.timestamp : ts.toLocaleString([], { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }));
+
+        // Check for ESP32 PVS6 error flags from SolarLogWifi_V2_1.ino
+        if (lat.panels && (lat.panels.authError || lat.panels.meterError || lat.panels.inverterError)) {
+          banner.style.display = 'block';
+          banner.innerText = `⚠️ PVS6 Error Logged in Last Cycle: ${JSON.stringify(lat.panels)}`;
+        }
+
+        // 2. Update Period Totals
+        document.getElementById('sumSolar').innerText = `${data.summary.solarKwh} kWh`;
+        document.getElementById('sumUsage').innerText = `${data.summary.usageKwh} kWh`;
+        document.getElementById('sumPeak').innerText = `${data.summary.peakSolarKw} kW`;
+
+        // 3. Render History Chart
+        renderChart(data.history, range);
+
+        // 4. Render 23 Panels (Displayed in Watts for easier reading)
+        renderPanels(lat.panels || {});
+
+      } catch (err) {
+        document.getElementById('lastUpdated').innerText = 'Sync failed';
+        banner.style.display = 'block';
+        banner.innerText = 'Error: ' + err.message;
+      }
+    }
+
+    function renderChart(history, range) {
+      const ctx = document.getElementById('historyChart').getContext('2d');
+      const labels = history.map(pt => {
+        const d = new Date(pt.t);
+        if (isNaN(d)) return pt.t;
+        return range === '24h'
+          ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          : d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+      });
+
+      if (chartInstance) chartInstance.destroy();
+
+      chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: 'Solar (kW)',
+              data: history.map(pt => pt.s),
+              borderColor: '#facc15',
+              backgroundColor: 'rgba(250, 204, 21, 0.15)',
+              fill: true,
+              tension: 0.3,
+              pointRadius: 0,
+              borderWidth: 2
+            },
+            {
+              label: 'Home Usage (kW)',
+              data: history.map(pt => pt.u),
+              borderColor: '#38bdf8',
+              backgroundColor: 'transparent',
+              tension: 0.3,
+              pointRadius: 0,
+              borderWidth: 1.8
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { labels: { color: '#94a3b8', boxWidth: 12, font: { size: 11 } } }
+          },
+          scales: {
+            x: { ticks: { color: '#64748b', maxTicksLimit: 6, font: { size: 10 } }, grid: { display: false } },
+            y: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: '#1e293b' }, beginAtZero: true }
+          }
+        }
+      });
+    }
+
+    function renderPanels(panelsObj) {
+      const container = document.getElementById('panelGrid');
+      container.innerHTML = '';
+      for (let i = 0; i <= 22; i++) {
+        const kw = Number(panelsObj[String(i)]) || 0;
+        const watts = Math.round(kw * 1000);
+        const cell = document.createElement('div');
+        cell.className = 'panel-cell';
+        // Subtle green/gold highlight scaled to output (assuming ~350W max per panel)
+        const intensity = Math.min(1, watts / 320);
+        if (watts > 0) {
+          cell.style.borderColor = `rgba(250, 204, 21, ${0.25 + intensity * 0.65})`;
+        }
+        cell.innerHTML = `<div class="panel-id">Panel ${i}</div><div class="panel-w" style="color:${watts > 0 ? '#facc15' : '#64748b'}">${watts}W</div>`;
+        container.appendChild(cell);
+      }
+    }
+
+    loadData('24h');
+  </script>
+</body>
+</html>
