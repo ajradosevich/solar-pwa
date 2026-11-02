@@ -57,15 +57,15 @@
     .usage-txt { color: var(--usage); }
     
     .section-header {
-      display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;
+      display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 8px;
     }
-    .section-title { font-size: 0.95rem; font-weight: 600; margin: 0; }
+    .section-title { font-size: 0.92rem; font-weight: 600; margin: 0; }
     .tabs {
       display: flex; background: var(--bg); border-radius: 10px; padding: 3px; border: 1px solid var(--border);
     }
     .tab {
       background: transparent; border: none; color: var(--muted);
-      padding: 5px 12px; border-radius: 7px; font-size: 0.78rem; font-weight: 600; cursor: pointer;
+      padding: 5px 10px; border-radius: 7px; font-size: 0.75rem; font-weight: 600; cursor: pointer;
     }
     .tab.active { background: var(--card); color: var(--text); }
 
@@ -76,7 +76,6 @@
     }
     .summary-row strong { color: var(--text); }
 
-    /* 23-Panel Array Grid */
     .panel-grid {
       display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px;
     }
@@ -87,7 +86,6 @@
     .panel-id { font-size: 0.68rem; color: var(--muted); }
     .panel-w { font-size: 0.95rem; font-weight: 700; margin-top: 2px; }
 
-    /* Settings Modal */
     .modal-backdrop {
       position: fixed; inset: 0; background: rgba(0,0,0,0.75);
       display: none; align-items: center; justify-content: center; padding: 16px; z-index: 50;
@@ -122,7 +120,6 @@
 
   <div class="alert" id="errorBanner"></div>
 
-  <!-- Latest Reading Snapshot -->
   <div class="grid-3">
     <div class="card">
       <div class="label">Solar Now</div>
@@ -138,17 +135,17 @@
     </div>
   </div>
 
-  <!-- Historical Chart Card -->
   <div class="card" style="margin-bottom: 14px;">
     <div class="section-header">
-      <h2 class="section-title">Power History (kW)</h2>
+      <h2 class="section-title" id="chartTitle">Power History (kW)</h2>
       <div class="tabs">
         <button class="tab active" id="tab-24h" onclick="loadData('24h')">24H</button>
         <button class="tab" id="tab-7d" onclick="loadData('7d')">7D</button>
         <button class="tab" id="tab-30d" onclick="loadData('30d')">30D</button>
+        <button class="tab" id="tab-1y" onclick="loadData('1y')">1Y</button>
       </div>
     </div>
-    <div style="position: relative; height: 220px;">
+    <div style="position: relative; height: 230px;">
       <canvas id="historyChart"></canvas>
     </div>
     <div class="summary-row">
@@ -158,16 +155,14 @@
     </div>
   </div>
 
-  <!-- 23 Microinverters Breakdown -->
   <div class="card">
     <div class="section-header" style="margin-bottom: 4px;">
       <h2 class="section-title">Microinverters (23 Panels)</h2>
-      <span class="sub" id="panelUnitLabel">Watts (W)</span>
+      <span class="sub">Watts (W)</span>
     </div>
     <div class="panel-grid" id="panelGrid"></div>
   </div>
 
-  <!-- Settings Modal -->
   <div class="modal-backdrop" id="settingsModal">
     <div class="modal">
       <h2 style="margin-top:0; font-size:1.1rem;">Connection Settings</h2>
@@ -204,9 +199,17 @@
 
     async function loadData(range) {
       currentRange = range;
-      ['24h', '7d', '30d'].forEach(r => {
+      ['24h', '7d', '30d', '1y'].forEach(r => {
         document.getElementById('tab-' + r).classList.toggle('active', r === range);
       });
+
+      const titleMap = {
+        '24h': '24-Hour Power (kW)',
+        '7d': '7-Day Daily Totals (kWh)',
+        '30d': '30-Day Daily Totals (kWh)',
+        '1y': '1-Year Monthly Totals (kWh)'
+      };
+      document.getElementById('chartTitle').innerText = titleMap[range];
 
       const baseUrl = localStorage.getItem('solar_url');
       const key = localStorage.getItem('solar_key');
@@ -225,7 +228,6 @@
 
         if (data.error) throw new Error(data.error);
 
-        // 1. Update Latest Snapshot
         const lat = data.latest;
         document.getElementById('nowSolar').innerText = lat.solarKw.toFixed(2);
         document.getElementById('nowUsage').innerText = lat.usageKw.toFixed(2);
@@ -239,21 +241,16 @@
         document.getElementById('lastUpdated').innerText =
           'Last reading: ' + (isNaN(ts) ? lat.timestamp : ts.toLocaleString([], { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }));
 
-        // Check for ESP32 PVS6 error flags from SolarLogWifi_V2_1.ino
         if (lat.panels && (lat.panels.authError || lat.panels.meterError || lat.panels.inverterError)) {
           banner.style.display = 'block';
           banner.innerText = `⚠️ PVS6 Error Logged in Last Cycle: ${JSON.stringify(lat.panels)}`;
         }
 
-        // 2. Update Period Totals
         document.getElementById('sumSolar').innerText = `${data.summary.solarKwh} kWh`;
         document.getElementById('sumUsage').innerText = `${data.summary.usageKwh} kWh`;
         document.getElementById('sumPeak').innerText = `${data.summary.peakSolarKw} kW`;
 
-        // 3. Render History Chart
         renderChart(data.history, range);
-
-        // 4. Render 23 Panels (Displayed in Watts for easier reading)
         renderPanels(lat.panels || {});
 
       } catch (err) {
@@ -265,39 +262,41 @@
 
     function renderChart(history, range) {
       const ctx = document.getElementById('historyChart').getContext('2d');
+      const is24h = range === '24h';
+
       const labels = history.map(pt => {
+        if (!is24h) return pt.t; // Already formatted as "Nov 1" or "Nov '26"
         const d = new Date(pt.t);
-        if (isNaN(d)) return pt.t;
-        return range === '24h'
-          ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          : d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+        return isNaN(d) ? pt.t : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       });
 
       if (chartInstance) chartInstance.destroy();
 
       chartInstance = new Chart(ctx, {
-        type: 'line',
+        type: is24h ? 'line' : 'bar',
         data: {
           labels: labels,
           datasets: [
             {
-              label: 'Solar (kW)',
+              label: is24h ? 'Solar (kW)' : 'Solar Produced (kWh)',
               data: history.map(pt => pt.s),
               borderColor: '#facc15',
-              backgroundColor: 'rgba(250, 204, 21, 0.15)',
-              fill: true,
+              backgroundColor: is24h ? 'rgba(250, 204, 21, 0.15)' : '#facc15',
+              fill: is24h,
               tension: 0.3,
               pointRadius: 0,
-              borderWidth: 2
+              borderWidth: is24h ? 2 : 0,
+              borderRadius: is24h ? 0 : 4
             },
             {
-              label: 'Home Usage (kW)',
+              label: is24h ? 'Home Usage (kW)' : 'Home Usage (kWh)',
               data: history.map(pt => pt.u),
               borderColor: '#38bdf8',
-              backgroundColor: 'transparent',
+              backgroundColor: is24h ? 'transparent' : '#38bdf8',
               tension: 0.3,
               pointRadius: 0,
-              borderWidth: 1.8
+              borderWidth: is24h ? 1.8 : 0,
+              borderRadius: is24h ? 0 : 4
             }
           ]
         },
@@ -309,8 +308,15 @@
             legend: { labels: { color: '#94a3b8', boxWidth: 12, font: { size: 11 } } }
           },
           scales: {
-            x: { ticks: { color: '#64748b', maxTicksLimit: 6, font: { size: 10 } }, grid: { display: false } },
-            y: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: '#1e293b' }, beginAtZero: true }
+            x: {
+              ticks: { color: '#64748b', maxTicksLimit: range === '30d' ? 8 : 12, font: { size: 10 } },
+              grid: { display: false }
+            },
+            y: {
+              ticks: { color: '#64748b', font: { size: 10 } },
+              grid: { color: '#1e293b' },
+              beginAtZero: true
+            }
           }
         }
       });
@@ -324,7 +330,6 @@
         const watts = Math.round(kw * 1000);
         const cell = document.createElement('div');
         cell.className = 'panel-cell';
-        // Subtle green/gold highlight scaled to output (assuming ~350W max per panel)
         const intensity = Math.min(1, watts / 320);
         if (watts > 0) {
           cell.style.borderColor = `rgba(250, 204, 21, ${0.25 + intensity * 0.65})`;
