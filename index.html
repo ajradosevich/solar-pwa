@@ -62,6 +62,11 @@
       box-shadow: 0 0 8px var(--net-green);
     }
 
+    .header-actions {
+      display: flex;
+      gap: 6px;
+    }
+
     .refresh-btn {
       background: var(--bg-card);
       color: var(--text-main);
@@ -71,6 +76,10 @@
       font-size: 0.82rem;
       font-weight: 600;
       cursor: pointer;
+    }
+
+    .refresh-btn:active {
+      transform: scale(0.96);
     }
 
     .controls-container {
@@ -227,7 +236,6 @@
       pointer-events: auto;
     }
 
-    /* Array & Hardware Diagnostics Strip */
     .diag-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -285,7 +293,10 @@
       <span class="status-dot" id="status-dot"></span>
       <span>PVS6 Solar Monitor</span>
     </div>
-    <button class="refresh-btn" onclick="fetchSolarData()">Refresh</button>
+    <div class="header-actions">
+      <button class="refresh-btn" onclick="configureAppSecret()" title="Update App Secret Key">🔑 Key</button>
+      <button class="refresh-btn" onclick="fetchSolarData()">Refresh</button>
+    </div>
   </header>
 
   <section class="controls-container">
@@ -364,14 +375,29 @@
   </footer>
 
   <script>
-    // =========================================================================
-    // PASTE YOUR DEPLOYED GOOGLE APPS SCRIPT WEB APP URL BELOW
-    // =========================================================================
-    const APPS_SCRIPT_URL = 'YOUR_APPS_SCRIPT_DEPLOYMENT_URL_HERE';
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxJrlCZdRJVQqRVxq1yOJ5U6mQLz32M4HT3Ci8HoaSKrM5cCaYzrEv6a5MEwggWd1Ap/exec';
+    const SECRET_STORAGE_KEY = 'pvs6_pwa_app_secret';
 
     let currentMode = 'day';
     let currentOffset = 0;
     let solarChartInstance = null;
+
+    function getAppSecret(forcePrompt = false) {
+      let key = localStorage.getItem(SECRET_STORAGE_KEY);
+      if (!key || forcePrompt) {
+        const input = prompt('Enter your Apps Script Secret Key:', key || '');
+        if (input !== null) {
+          key = input.trim();
+          localStorage.setItem(SECRET_STORAGE_KEY, key);
+        }
+      }
+      return key || '';
+    }
+
+    function configureAppSecret() {
+      const updated = getAppSecret(true);
+      if (updated) fetchSolarData();
+    }
 
     function setMode(newMode) {
       if (currentMode === newMode && currentOffset === 0) return;
@@ -430,13 +456,27 @@
     }
 
     async function fetchSolarData() {
+      const secretKey = getAppSecret(false);
+      if (!secretKey) {
+        document.getElementById('status-dot').style.backgroundColor = '#ef4444';
+        return;
+      }
+
       const overlay = document.getElementById('loading-overlay');
       overlay.classList.add('visible');
 
       try {
-        const url = `${APPS_SCRIPT_URL}?mode=${currentMode}&offset=${currentOffset}&_t=${Date.now()}`;
+        const url = `${APPS_SCRIPT_URL}?mode=${currentMode}&offset=${currentOffset}&key=${encodeURIComponent(secretKey)}&_t=${Date.now()}`;
         const response = await fetch(url);
         const data = await response.json();
+
+        if (data.status === 'unauthorized') {
+          document.getElementById('status-dot').style.backgroundColor = '#ef4444';
+          alert('Unauthorized: Incorrect App Secret key.');
+          const retryKey = getAppSecret(true);
+          if (retryKey) fetchSolarData();
+          return;
+        }
 
         if (data.status !== 'ok') throw new Error(data.message || 'Backend error');
 
@@ -482,7 +522,6 @@
         const tStr = new Date(latest.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         document.getElementById('kpi-last-seen').textContent  = `Last log: ${tStr}`;
 
-        // Hardware Diagnostics Strip
         const invEl = document.getElementById('diag-inv');
         if (latest.invTotal != null && latest.invTotal > 0) {
           invEl.textContent = `${latest.invOnline} / ${latest.invTotal}`;
@@ -600,8 +639,7 @@
             }
           }
         }
-      }
-      );
+      });
     }
 
     window.addEventListener('DOMContentLoaded', () => {
