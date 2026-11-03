@@ -1,302 +1,559 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Solar Monitor</title>
-  <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#0f172a">
-  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#111318" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>PVS6 Solar Monitor</title>
+  <link rel="manifest" href="manifest.json" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>
     :root {
-      --bg: #0f172a;
-      --card: #1e293b;
-      --border: #334155;
-      --text: #f8fafc;
-      --muted: #94a3b8;
-      --solar: #facc15;
-      --usage: #38bdf8;
-      --grid-pos: #f87171;
-      --grid-neg: #4ade80;
+      --bg-main: #111318;
+      --bg-card: #1e222a;
+      --bg-elevated: #2b303c;
+      --text-main: #e8eaed;
+      --text-muted: #9aa0a6;
+      --accent-blue: #3b82f6;
+      --solar-gold: #f59e0b;
+      --home-blue: #38bdf8;
+      --net-green: #10b981;
+      --net-red: #ef4444;
     }
-    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
     body {
-      margin: 0; padding: 16px;
-      font-family: 'Google Sans', Roboto, system-ui, sans-serif;
-      background: var(--bg); color: var(--text);
-      max-width: 520px; margin-inline: auto;
-      padding-bottom: 48px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      padding: 14px;
+      max-width: 600px;
+      margin: 0 auto;
     }
-    header {
-      display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 16px;
-    }
-    h1 { font-size: 1.25rem; margin: 0; display: flex; align-items: center; gap: 8px; }
-    .sub { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
-    .icon-btn {
-      background: var(--card); border: 1px solid var(--border); color: var(--text);
-      border-radius: 12px; padding: 8px 12px; font-size: 0.85rem; cursor: pointer;
-    }
-    .alert {
-      background: rgba(248, 113, 113, 0.15); border: 1px solid var(--grid-pos);
-      color: #fca5a5; padding: 12px; border-radius: 12px; margin-bottom: 14px;
-      font-size: 0.85rem; display: none;
-    }
-    .grid-3 {
-      display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px;
-    }
-    .card {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: 16px; padding: 14px;
-    }
-    .label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
-    .val { font-size: 1.45rem; font-weight: 700; margin-top: 6px; }
-    .unit { font-size: 0.8rem; font-weight: 400; color: var(--muted); }
-    .solar-txt { color: var(--solar); }
-    .usage-txt { color: var(--usage); }
-    
-    .section-header {
-      display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 8px;
-    }
-    .section-title { font-size: 0.92rem; font-weight: 600; margin: 0; }
-    .tabs {
-      display: flex; background: var(--bg); border-radius: 10px; padding: 3px; border: 1px solid var(--border);
-    }
-    .tab {
-      background: transparent; border: none; color: var(--muted);
-      padding: 5px 10px; border-radius: 7px; font-size: 0.75rem; font-weight: 600; cursor: pointer;
-    }
-    .tab.active { background: var(--card); color: var(--text); }
 
-    .summary-row {
-      display: flex; justify-content: space-between; font-size: 0.8rem;
-      color: var(--muted); border-top: 1px solid var(--border);
-      padding-top: 10px; margin-top: 10px;
+    .app-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
     }
-    .summary-row strong { color: var(--text); }
 
-    .panel-grid {
-      display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px;
+    .app-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
-    .panel-cell {
-      background: var(--bg); border: 1px solid var(--border);
-      border-radius: 10px; padding: 8px; text-align: center;
-    }
-    .panel-id { font-size: 0.68rem; color: var(--muted); }
-    .panel-w { font-size: 0.95rem; font-weight: 700; margin-top: 2px; }
 
-    .modal-backdrop {
-      position: fixed; inset: 0; background: rgba(0,0,0,0.75);
-      display: none; align-items: center; justify-content: center; padding: 16px; z-index: 50;
+    .status-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background-color: var(--net-green);
+      box-shadow: 0 0 8px var(--net-green);
     }
-    .modal {
-      background: var(--card); border: 1px solid var(--border);
-      border-radius: 18px; padding: 20px; width: 100%; max-width: 400px;
+
+    .refresh-btn {
+      background: var(--bg-card);
+      color: var(--text-main);
+      border: 1px solid var(--bg-elevated);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
     }
-    input {
-      width: 100%; padding: 10px 12px; border-radius: 10px;
-      border: 1px solid var(--border); background: var(--bg); color: var(--text);
-      margin-top: 6px; margin-bottom: 14px; font-size: 0.9rem;
+
+    .controls-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 14px;
     }
-    .primary-btn {
-      width: 100%; padding: 12px; border-radius: 10px; border: none;
-      background: var(--solar); color: #0f172a; font-weight: 700; font-size: 0.95rem; cursor: pointer;
+
+    .mode-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      background: var(--bg-card);
+      border-radius: 10px;
+      padding: 4px;
+    }
+
+    .mode-btn {
+      background: transparent;
+      color: var(--text-muted);
+      border: none;
+      padding: 8px 0;
+      font-size: 0.9rem;
+      font-weight: 600;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .mode-btn.active {
+      background: var(--accent-blue);
+      color: #ffffff;
+    }
+
+    .scanner-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg-card);
+      border-radius: 10px;
+      padding: 6px 10px;
+    }
+
+    .nav-arrow {
+      background: var(--bg-elevated);
+      color: var(--text-main);
+      border: none;
+      width: 42px;
+      height: 36px;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .nav-arrow:disabled {
+      opacity: 0.25;
+      cursor: not-allowed;
+    }
+
+    #period-label {
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: var(--text-main);
+      cursor: pointer;
+      user-select: none;
+      text-align: center;
+      flex: 1;
+    }
+
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .kpi-card {
+      background: var(--bg-card);
+      border-radius: 12px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .kpi-label {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      font-weight: 600;
+    }
+
+    .kpi-value {
+      font-size: 1.3rem;
+      font-weight: 700;
+    }
+
+    .kpi-sub {
+      font-size: 0.74rem;
+      color: var(--text-muted);
+    }
+
+    .val-solar  { color: var(--solar-gold); }
+    .val-home   { color: var(--home-blue); }
+    .val-export { color: var(--net-green); }
+    .val-import { color: var(--net-red); }
+
+    .chart-card {
+      background: var(--bg-card);
+      border-radius: 12px;
+      padding: 14px 10px 10px 10px;
+      margin-bottom: 14px;
+      position: relative;
+    }
+
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 6px 10px 6px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .chart-wrapper {
+      position: relative;
+      height: 250px;
+      width: 100%;
+    }
+
+    .loading-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(30, 34, 42, 0.78);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      z-index: 10;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .loading-overlay.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* Array & Hardware Diagnostics Strip */
+    .diag-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .diag-pill {
+      background: var(--bg-card);
+      border-radius: 10px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      text-align: center;
+    }
+
+    .diag-title {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .diag-val {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .diag-sub {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+    }
+
+    .footer-totals {
+      display: flex;
+      justify-content: space-between;
+      background: var(--bg-card);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .footer-totals strong {
+      color: var(--text-main);
     }
   </style>
 </head>
 <body>
 
-  <header>
-    <div>
-      <h1>☀️ PVS6 Solar Monitor</h1>
-      <div class="sub" id="lastUpdated">Tap ⚙ to configure connection</div>
+  <header class="app-header">
+    <div class="app-title">
+      <span class="status-dot" id="status-dot"></span>
+      <span>PVS6 Solar Monitor</span>
     </div>
-    <div style="display:flex; gap:8px;">
-      <button class="icon-btn" onclick="loadData(currentRange)">↻</button>
-      <button class="icon-btn" onclick="openSettings()">⚙</button>
-    </div>
+    <button class="refresh-btn" onclick="fetchSolarData()">Refresh</button>
   </header>
 
-  <div class="alert" id="errorBanner"></div>
+  <section class="controls-container">
+    <div class="mode-tabs">
+      <button class="mode-btn active" data-mode="day" onclick="setMode('day')">Day</button>
+      <button class="mode-btn" data-mode="week" onclick="setMode('week')">Week</button>
+      <button class="mode-btn" data-mode="month" onclick="setMode('month')">Month</button>
+    </div>
 
-  <div class="grid-3">
-    <div class="card">
-      <div class="label">Solar Now</div>
-      <div class="val solar-txt"><span id="nowSolar">--</span> <span class="unit">kW</span></div>
+    <div class="scanner-bar">
+      <button class="nav-arrow" onclick="shiftWindow(-1)" aria-label="Previous period">&#9664;</button>
+      <span id="period-label" onclick="resetToCurrent()" title="Tap to jump back to current period">Today</span>
+      <button class="nav-arrow" id="btn-forward" onclick="shiftWindow(1)" aria-label="Next period" disabled>&#9654;</button>
     </div>
-    <div class="card">
-      <div class="label">Home Load</div>
-      <div class="val usage-txt"><span id="nowUsage">--</span> <span class="unit">kW</span></div>
-    </div>
-    <div class="card">
-      <div class="label" id="gridLabel">Grid Net</div>
-      <div class="val" id="nowGridWrap"><span id="nowGrid">--</span> <span class="unit">kW</span></div>
-    </div>
-  </div>
+  </section>
 
-  <div class="card" style="margin-bottom: 14px;">
-    <div class="section-header">
-      <h2 class="section-title" id="chartTitle">Power History (kW)</h2>
-      <div class="tabs">
-        <button class="tab active" id="tab-24h" onclick="loadData('24h')">24H</button>
-        <button class="tab" id="tab-7d" onclick="loadData('7d')">7D</button>
-        <button class="tab" id="tab-30d" onclick="loadData('30d')">30D</button>
-        <button class="tab" id="tab-1y" onclick="loadData('1y')">1Y</button>
-      </div>
+  <!-- Primary KPI Cards -->
+  <section class="kpi-grid">
+    <div class="kpi-card">
+      <span class="kpi-label">Window Solar</span>
+      <span class="kpi-value val-solar" id="kpi-solar">-- kWh</span>
+      <span class="kpi-sub" id="kpi-peak">Peak: -- kW</span>
     </div>
-    <div style="position: relative; height: 230px;">
-      <canvas id="historyChart"></canvas>
+    <div class="kpi-card">
+      <span class="kpi-label">Window Home</span>
+      <span class="kpi-value val-home" id="kpi-home">-- kWh</span>
+      <span class="kpi-sub" id="kpi-live-home">Live: -- kW</span>
     </div>
-    <div class="summary-row">
-      <span>Produced: <strong id="sumSolar">-- kWh</strong></span>
-      <span>Used: <strong id="sumUsage">-- kWh</strong></span>
-      <span>Peak: <strong id="sumPeak">-- kW</strong></span>
+    <div class="kpi-card">
+      <span class="kpi-label">Window Net Grid</span>
+      <span class="kpi-value" id="kpi-net">-- kWh</span>
+      <span class="kpi-sub" id="kpi-net-dir">--</span>
     </div>
-  </div>
+    <div class="kpi-card">
+      <span class="kpi-label">Live PVS6 Output</span>
+      <span class="kpi-value val-solar" id="kpi-live-solar">-- kW</span>
+      <span class="kpi-sub" id="kpi-last-seen">Updated: --</span>
+    </div>
+  </section>
 
-  <div class="card">
-    <div class="section-header" style="margin-bottom: 4px;">
-      <h2 class="section-title">Microinverters (23 Panels)</h2>
-      <span class="sub">Watts (W)</span>
+  <!-- Chart -->
+  <section class="chart-card">
+    <div class="chart-header">
+      <span id="chart-title">15-Min Avg Power (kW)</span>
+      <span id="chart-points">-- pts</span>
     </div>
-    <div class="panel-grid" id="panelGrid"></div>
-  </div>
+    <div class="chart-wrapper">
+      <canvas id="solarChart"></canvas>
+    </div>
+    <div class="loading-overlay" id="loading-overlay">Loading telemetry...</div>
+  </section>
 
-  <div class="modal-backdrop" id="settingsModal">
-    <div class="modal">
-      <h2 style="margin-top:0; font-size:1.1rem;">Connection Settings</h2>
-      <label class="label">Google Apps Script Web App URL</label>
-      <input type="url" id="inputUrl" placeholder="https://script.google.com/macros/s/.../exec">
-      <label class="label">Secret Passcode (APP_SECRET_KEY)</label>
-      <input type="password" id="inputKey" placeholder="Your secret passcode">
-      <button class="primary-btn" onclick="saveSettings()">Save & Connect</button>
+  <!-- Hardware & Microinverter Diagnostics -->
+  <section class="diag-grid">
+    <div class="diag-pill">
+      <span class="diag-title">Inverters</span>
+      <span class="diag-val" id="diag-inv">-- / --</span>
+      <span class="diag-sub" id="diag-spread">Spread: -- W</span>
     </div>
-  </div>
+    <div class="diag-pill">
+      <span class="diag-title">Grid Voltage</span>
+      <span class="diag-val" id="diag-v12">-- V</span>
+      <span class="diag-sub">Split-Phase L1-L2</span>
+    </div>
+    <div class="diag-pill">
+      <span class="diag-title">Peak Inv Temp</span>
+      <span class="diag-val" id="diag-temp">-- °C</span>
+      <span class="diag-sub" id="diag-temp-f">-- °F</span>
+    </div>
+  </section>
+
+  <footer class="footer-totals">
+    <span>Today: <strong id="ft-today">-- kWh</strong></span>
+    <span>MTD: <strong id="ft-month">-- kWh</strong></span>
+    <span>Lifetime: <strong id="ft-ltea">-- MWh</strong></span>
+  </footer>
 
   <script>
-    let currentRange = '24h';
-    let chartInstance = null;
+    // =========================================================================
+    // PASTE YOUR DEPLOYED GOOGLE APPS SCRIPT WEB APP URL BELOW
+    // =========================================================================
+    const APPS_SCRIPT_URL = 'YOUR_APPS_SCRIPT_DEPLOYMENT_URL_HERE';
 
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js').catch(() => {});
-    }
+    let currentMode = 'day';
+    let currentOffset = 0;
+    let solarChartInstance = null;
 
-    function openSettings() {
-      document.getElementById('inputUrl').value = localStorage.getItem('solar_url') || '';
-      document.getElementById('inputKey').value = localStorage.getItem('solar_key') || '';
-      document.getElementById('settingsModal').style.display = 'flex';
-    }
-
-    function saveSettings() {
-      const url = document.getElementById('inputUrl').value.trim();
-      const key = document.getElementById('inputKey').value.trim();
-      localStorage.setItem('solar_url', url);
-      localStorage.setItem('solar_key', key);
-      document.getElementById('settingsModal').style.display = 'none';
-      loadData(currentRange);
-    }
-
-    async function loadData(range) {
-      currentRange = range;
-      ['24h', '7d', '30d', '1y'].forEach(r => {
-        document.getElementById('tab-' + r).classList.toggle('active', r === range);
+    function setMode(newMode) {
+      if (currentMode === newMode && currentOffset === 0) return;
+      currentMode = newMode;
+      currentOffset = 0;
+      document.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mode === currentMode);
       });
+      updateScannerUI();
+      fetchSolarData();
+    }
 
-      const titleMap = {
-        '24h': '24-Hour Power (kW)',
-        '7d': '7-Day Daily Totals (kWh)',
-        '30d': '30-Day Daily Totals (kWh)',
-        '1y': '1-Year Monthly Totals (kWh)'
-      };
-      document.getElementById('chartTitle').innerText = titleMap[range];
+    function shiftWindow(delta) {
+      if (currentOffset + delta > 0) return;
+      currentOffset += delta;
+      updateScannerUI();
+      fetchSolarData();
+    }
 
-      const baseUrl = localStorage.getItem('solar_url');
-      const key = localStorage.getItem('solar_key');
-      if (!baseUrl || !key) {
-        openSettings();
-        return;
+    function resetToCurrent() {
+      if (currentOffset === 0) return;
+      currentOffset = 0;
+      updateScannerUI();
+      fetchSolarData();
+    }
+
+    function getLocalWindowLabel(mode, offset) {
+      const now = new Date();
+      if (mode === 'day') {
+        const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
+        const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        if (offset === 0) return `Today (${dateStr})`;
+        if (offset === -1) return `Yesterday (${dateStr})`;
+        return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
       }
+      if (mode === 'week') {
+        const sun = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay() + (offset * 7));
+        const sat = new Date(sun.getFullYear(), sun.getMonth(), sun.getDate() + 6);
+        const sFmt = sun.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const eFmt = sat.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        return (offset === 0) ? `This Week (${sFmt} – ${eFmt})` : `${sFmt} – ${eFmt}`;
+      }
+      if (mode === 'month') {
+        const m = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+        return m.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      }
+      return '';
+    }
 
-      document.getElementById('lastUpdated').innerText = 'Syncing with Google Sheets...';
-      const banner = document.getElementById('errorBanner');
-      banner.style.display = 'none';
+    function updateScannerUI() {
+      document.getElementById('period-label').textContent = getLocalWindowLabel(currentMode, currentOffset);
+      document.getElementById('btn-forward').disabled = (currentOffset >= 0);
+      document.getElementById('chart-title').textContent = (currentMode === 'day')
+        ? '15-Min Avg Power (kW) — Midnight to Now'
+        : 'Daily Energy Totals (kWh)';
+    }
+
+    async function fetchSolarData() {
+      const overlay = document.getElementById('loading-overlay');
+      overlay.classList.add('visible');
 
       try {
-        const res = await fetch(`${baseUrl}?range=${range}&key=${encodeURIComponent(key)}`);
-        const data = await res.json();
+        const url = `${APPS_SCRIPT_URL}?mode=${currentMode}&offset=${currentOffset}&_t=${Date.now()}`;
+        const response = await fetch(url);
+        const data = await response.json();
 
-        if (data.error) throw new Error(data.error);
+        if (data.status !== 'ok') throw new Error(data.message || 'Backend error');
 
-        const lat = data.latest;
-        document.getElementById('nowSolar').innerText = lat.solarKw.toFixed(2);
-        document.getElementById('nowUsage').innerText = lat.usageKw.toFixed(2);
-
-        const gridVal = lat.gridKw;
-        document.getElementById('nowGrid').innerText = Math.abs(gridVal).toFixed(2);
-        document.getElementById('gridLabel').innerText = gridVal < 0 ? 'Grid Export' : 'Grid Import';
-        document.getElementById('nowGridWrap').style.color = gridVal <= 0 ? 'var(--grid-neg)' : 'var(--grid-pos)';
-
-        const ts = new Date(lat.timestamp);
-        document.getElementById('lastUpdated').innerText =
-          'Last reading: ' + (isNaN(ts) ? lat.timestamp : ts.toLocaleString([], { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' }));
-
-        if (lat.panels && (lat.panels.authError || lat.panels.meterError || lat.panels.inverterError)) {
-          banner.style.display = 'block';
-          banner.innerText = `⚠️ PVS6 Error Logged in Last Cycle: ${JSON.stringify(lat.panels)}`;
+        if (data.periodLabel) {
+          document.getElementById('period-label').textContent = data.periodLabel;
         }
 
-        document.getElementById('sumSolar').innerText = `${data.summary.solarKwh} kWh`;
-        document.getElementById('sumUsage').innerText = `${data.summary.usageKwh} kWh`;
-        document.getElementById('sumPeak').innerText = `${data.summary.peakSolarKw} kW`;
-
-        renderChart(data.history, range);
-        renderPanels(lat.panels || {});
-
+        updateKPIs(data);
+        renderChart(data);
+        document.getElementById('status-dot').style.backgroundColor = '#10b981';
       } catch (err) {
-        document.getElementById('lastUpdated').innerText = 'Sync failed';
-        banner.style.display = 'block';
-        banner.innerText = 'Error: ' + err.message;
+        console.error('Error fetching solar data:', err);
+        document.getElementById('status-dot').style.backgroundColor = '#ef4444';
+      } finally {
+        overlay.classList.remove('visible');
       }
     }
 
-    function renderChart(history, range) {
-      const ctx = document.getElementById('historyChart').getContext('2d');
-      const is24h = range === '24h';
+    function updateKPIs(data) {
+      const s = data.summary || {};
+      const latest = data.latest;
 
-      const labels = history.map(pt => {
-        if (!is24h) return pt.t; // Already formatted as "Nov 1" or "Nov '26"
-        const d = new Date(pt.t);
-        return isNaN(d) ? pt.t : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      });
+      document.getElementById('kpi-solar').textContent = `${(s.windowSolarKwh ?? 0).toFixed(2)} kWh`;
+      document.getElementById('kpi-peak').textContent  = `Peak: ${(s.peakSolarKw ?? 0).toFixed(2)} kW`;
+      document.getElementById('kpi-home').textContent  = `${(s.windowHomeKwh ?? 0).toFixed(2)} kWh`;
 
-      if (chartInstance) chartInstance.destroy();
+      const netKwh = s.windowNetKwh ?? 0;
+      const netEl = document.getElementById('kpi-net');
+      const netDirEl = document.getElementById('kpi-net-dir');
+      netEl.textContent = `${Math.abs(netKwh).toFixed(2)} kWh`;
 
-      chartInstance = new Chart(ctx, {
-        type: is24h ? 'line' : 'bar',
+      if (netKwh <= 0) {
+        netEl.className = 'kpi-value val-export';
+        netDirEl.textContent = 'Net Exported to Grid';
+      } else {
+        netEl.className = 'kpi-value val-import';
+        netDirEl.textContent = 'Net Imported from Grid';
+      }
+
+      if (latest) {
+        document.getElementById('kpi-live-solar').textContent = `${latest.solarKw.toFixed(2)} kW`;
+        document.getElementById('kpi-live-home').textContent  = `Live: ${latest.homeKw.toFixed(2)} kW`;
+        const tStr = new Date(latest.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        document.getElementById('kpi-last-seen').textContent  = `Last log: ${tStr}`;
+
+        // Hardware Diagnostics Strip
+        const invEl = document.getElementById('diag-inv');
+        if (latest.invTotal != null && latest.invTotal > 0) {
+          invEl.textContent = `${latest.invOnline} / ${latest.invTotal}`;
+          invEl.style.color = (latest.invOnline === latest.invTotal) ? '#10b981' : '#f59e0b';
+          document.getElementById('diag-spread').textContent = `Spread: ${latest.spreadW ?? 0} W`;
+        }
+
+        if (latest.gridV12 > 0) {
+          document.getElementById('diag-v12').textContent = `${latest.gridV12.toFixed(1)} V`;
+        }
+
+        if (latest.maxTempC > 0) {
+          const tempF = (latest.maxTempC * 9 / 5) + 32;
+          document.getElementById('diag-temp').textContent = `${latest.maxTempC.toFixed(1)} °C`;
+          document.getElementById('diag-temp-f').textContent = `${tempF.toFixed(1)} °F`;
+        }
+
+        if (latest.prodLteaKwh > 0) {
+          const mwh = latest.prodLteaKwh / 1000.0;
+          document.getElementById('ft-ltea').textContent = `${mwh.toFixed(2)} MWh`;
+        }
+      }
+
+      document.getElementById('ft-today').textContent = `${(s.todaySolarKwh ?? 0).toFixed(2)} kWh`;
+      document.getElementById('ft-month').textContent = `${(s.monthSolarKwh ?? 0).toFixed(2)} kWh`;
+      document.getElementById('chart-points').textContent = `${(data.series || []).length} intervals`;
+    }
+
+    function renderChart(data) {
+      const ctx = document.getElementById('solarChart').getContext('2d');
+      const series = data.series || [];
+      const labels = series.map(pt => pt.label);
+      const solarVals = series.map(pt => pt.solar);
+      const homeVals  = series.map(pt => pt.home);
+
+      const isDayMode = (data.mode === 'day');
+      const chartType = isDayMode ? 'line' : 'bar';
+      const unit = data.unit || (isDayMode ? 'kW' : 'kWh');
+
+      if (solarChartInstance) {
+        solarChartInstance.destroy();
+      }
+
+      solarChartInstance = new Chart(ctx, {
+        type: chartType,
         data: {
           labels: labels,
           datasets: [
             {
-              label: is24h ? 'Solar (kW)' : 'Solar Produced (kWh)',
-              data: history.map(pt => pt.s),
-              borderColor: '#facc15',
-              backgroundColor: is24h ? 'rgba(250, 204, 21, 0.15)' : '#facc15',
-              fill: is24h,
-              tension: 0.3,
+              label: `Solar (${unit})`,
+              data: solarVals,
+              borderColor: '#f59e0b',
+              backgroundColor: isDayMode ? 'rgba(245, 158, 11, 0.18)' : 'rgba(245, 158, 11, 0.85)',
+              borderWidth: isDayMode ? 2 : 0,
+              borderRadius: isDayMode ? 0 : 4,
+              fill: isDayMode,
+              tension: 0.25,
               pointRadius: 0,
-              borderWidth: is24h ? 2 : 0,
-              borderRadius: is24h ? 0 : 4
+              pointHitRadius: 10
             },
             {
-              label: is24h ? 'Home Usage (kW)' : 'Home Usage (kWh)',
-              data: history.map(pt => pt.u),
+              label: `Home (${unit})`,
+              data: homeVals,
               borderColor: '#38bdf8',
-              backgroundColor: is24h ? 'transparent' : '#38bdf8',
-              tension: 0.3,
+              backgroundColor: isDayMode ? 'rgba(56, 189, 248, 0.10)' : 'rgba(56, 189, 248, 0.75)',
+              borderWidth: isDayMode ? 1.8 : 0,
+              borderRadius: isDayMode ? 0 : 4,
+              fill: isDayMode,
+              tension: 0.25,
               pointRadius: 0,
-              borderWidth: is24h ? 1.8 : 0,
-              borderRadius: is24h ? 0 : 4
+              pointHitRadius: 10
             }
           ]
         },
@@ -305,41 +562,55 @@
           maintainAspectRatio: false,
           interaction: { mode: 'index', intersect: false },
           plugins: {
-            legend: { labels: { color: '#94a3b8', boxWidth: 12, font: { size: 11 } } }
+            legend: {
+              labels: { color: '#e8eaed', boxWidth: 12, font: { size: 11 } }
+            },
+            tooltip: {
+              backgroundColor: '#111318',
+              titleColor: '#e8eaed',
+              bodyColor: '#e8eaed',
+              borderColor: '#2b303c',
+              borderWidth: 1,
+              callbacks: {
+                label: function(context) {
+                  return `${context.dataset.label}: ${context.parsed.y.toFixed(2)} ${unit}`;
+                }
+              }
+            }
           },
           scales: {
             x: {
-              ticks: { color: '#64748b', maxTicksLimit: range === '30d' ? 8 : 12, font: { size: 10 } },
-              grid: { display: false }
+              grid: { color: 'rgba(255, 255, 255, 0.05)' },
+              ticks: {
+                color: '#9aa0a6',
+                maxRotation: 0,
+                autoSkip: true,
+                maxTicksLimit: isDayMode ? 8 : 10,
+                font: { size: 10 }
+              }
             },
             y: {
-              ticks: { color: '#64748b', font: { size: 10 } },
-              grid: { color: '#1e293b' },
-              beginAtZero: true
+              beginAtZero: true,
+              grid: { color: 'rgba(255, 255, 255, 0.06)' },
+              ticks: {
+                color: '#9aa0a6',
+                font: { size: 10 },
+                callback: value => `${value} ${unit}`
+              }
             }
           }
         }
-      });
-    }
-
-    function renderPanels(panelsObj) {
-      const container = document.getElementById('panelGrid');
-      container.innerHTML = '';
-      for (let i = 0; i <= 22; i++) {
-        const kw = Number(panelsObj[String(i)]) || 0;
-        const watts = Math.round(kw * 1000);
-        const cell = document.createElement('div');
-        cell.className = 'panel-cell';
-        const intensity = Math.min(1, watts / 320);
-        if (watts > 0) {
-          cell.style.borderColor = `rgba(250, 204, 21, ${0.25 + intensity * 0.65})`;
-        }
-        cell.innerHTML = `<div class="panel-id">Panel ${i}</div><div class="panel-w" style="color:${watts > 0 ? '#facc15' : '#64748b'}">${watts}W</div>`;
-        container.appendChild(cell);
       }
+      );
     }
 
-    loadData('24h');
+    window.addEventListener('DOMContentLoaded', () => {
+      updateScannerUI();
+      fetchSolarData();
+      setInterval(() => {
+        if (currentOffset === 0) fetchSolarData();
+      }, 300000);
+    });
   </script>
 </body>
 </html>
