@@ -1,461 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <meta name="theme-color" content="#111318" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>PVS6 Solar Monitor</title>
-  <link rel="manifest" href="manifest.json" />
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <style>
-    :root {
-      --bg-main: #111318;
-      --bg-card: #1e222a;
-      --bg-elevated: #2b303c;
-      --text-main: #e8eaed;
-      --text-muted: #9aa0a6;
-      --accent-blue: #3b82f6;
-      --solar-gold: #f59e0b;
-      --home-blue: #38bdf8;
-      --net-green: #10b981;
-      --net-red: #ef4444;
-    }
-
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-      -webkit-tap-highlight-color: transparent;
-    }
-
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background-color: var(--bg-main);
-      color: var(--text-main);
-      padding: 14px;
-      max-width: 600px;
-      margin: 0 auto;
-    }
-
-    .app-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 14px;
-    }
-
-    .app-title {
-      font-size: 1.15rem;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .status-dot {
-      width: 9px;
-      height: 9px;
-      border-radius: 50%;
-      background-color: var(--net-green);
-      box-shadow: 0 0 8px var(--net-green);
-    }
-
-    .header-actions {
-      display: flex;
-      gap: 6px;
-    }
-
-    .refresh-btn {
-      background: var(--bg-card);
-      color: var(--text-main);
-      border: 1px solid var(--bg-elevated);
-      border-radius: 8px;
-      padding: 6px 12px;
-      font-size: 0.82rem;
-      font-weight: 600;
-      cursor: pointer;
-    }
-
-    .refresh-btn:active {
-      transform: scale(0.96);
-    }
-
-    .controls-container {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      margin-bottom: 14px;
-    }
-
-    .mode-tabs {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      background: var(--bg-card);
-      border-radius: 10px;
-      padding: 4px;
-    }
-
-    .mode-btn {
-      background: transparent;
-      color: var(--text-muted);
-      border: none;
-      padding: 8px 0;
-      font-size: 0.9rem;
-      font-weight: 600;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: all 0.15s ease;
-    }
-
-    .mode-btn.active {
-      background: var(--accent-blue);
-      color: #ffffff;
-    }
-
-    .scanner-bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      background: var(--bg-card);
-      border-radius: 10px;
-      padding: 6px 10px;
-    }
-
-    .nav-arrow {
-      background: var(--bg-elevated);
-      color: var(--text-main);
-      border: none;
-      width: 42px;
-      height: 36px;
-      border-radius: 8px;
-      font-size: 1rem;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .nav-arrow:disabled {
-      opacity: 0.25;
-      cursor: not-allowed;
-    }
-
-    #period-label {
-      font-size: 0.92rem;
-      font-weight: 600;
-      color: var(--text-main);
-      cursor: pointer;
-      user-select: none;
-      text-align: center;
-      flex: 1;
-    }
-
-    .kpi-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 10px;
-      margin-bottom: 14px;
-    }
-
-    .kpi-card {
-      background: var(--bg-card);
-      border-radius: 12px;
-      padding: 12px;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .kpi-label {
-      font-size: 0.72rem;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.03em;
-      font-weight: 600;
-    }
-
-    .kpi-value {
-      font-size: 1.3rem;
-      font-weight: 700;
-    }
-
-    .kpi-sub {
-      font-size: 0.74rem;
-      color: var(--text-muted);
-    }
-
-    .val-solar  { color: var(--solar-gold); }
-    .val-home   { color: var(--home-blue); }
-    .val-export { color: var(--net-green); }
-    .val-import { color: var(--net-red); }
-
-    .chart-card {
-      background: var(--bg-card);
-      border-radius: 12px;
-      padding: 14px 10px 10px 10px;
-      margin-bottom: 14px;
-      position: relative;
-    }
-
-    .chart-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0 6px 10px 6px;
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      font-weight: 600;
-    }
-
-    .chart-wrapper {
-      position: relative;
-      height: 250px;
-      width: 100%;
-    }
-
-    .loading-overlay {
-      position: absolute;
-      inset: 0;
-      background: rgba(30, 34, 42, 0.78);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 12px;
-      font-size: 0.9rem;
-      font-weight: 600;
-      z-index: 10;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.2s ease;
-    }
-
-    .loading-overlay.visible {
-      opacity: 1;
-      pointer-events: auto;
-    }
-
-    .diag-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-      margin-bottom: 14px;
-    }
-
-    .diag-pill {
-      background: var(--bg-card);
-      border-radius: 10px;
-      padding: 10px;
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-      text-align: center;
-    }
-
-    .diag-title {
-      font-size: 0.68rem;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      font-weight: 600;
-    }
-
-    .diag-val {
-      font-size: 0.95rem;
-      font-weight: 700;
-      color: var(--text-main);
-    }
-
-    .diag-sub {
-      font-size: 0.68rem;
-      color: var(--text-muted);
-    }
-
-    .footer-totals {
-      display: flex;
-      justify-content: space-between;
-      background: var(--bg-card);
-      border-radius: 10px;
-      padding: 10px 14px;
-      font-size: 0.78rem;
-      color: var(--text-muted);
-    }
-
-    .footer-totals strong {
-      color: var(--text-main);
-    }
-  </style>
-</head>
-<body>
-
-  <header class="app-header">
-    <div class="app-title">
-      <span class="status-dot" id="status-dot"></span>
-      <span>PVS6 Solar Monitor</span>
-    </div>
-    <div class="header-actions">
-      <button class="refresh-btn" onclick="configureAppSecret()" title="Update App Secret Key">🔑 Key</button>
-      <button class="refresh-btn" onclick="fetchSolarData()">Refresh</button>
-    </div>
-  </header>
-
-  <section class="controls-container">
-    <div class="mode-tabs">
-      <button class="mode-btn active" data-mode="day" onclick="setMode('day')">Day</button>
-      <button class="mode-btn" data-mode="week" onclick="setMode('week')">Week</button>
-      <button class="mode-btn" data-mode="month" onclick="setMode('month')">Month</button>
-    </div>
-
-    <div class="scanner-bar">
-      <button class="nav-arrow" onclick="shiftWindow(-1)" aria-label="Previous period">&#9664;</button>
-      <span id="period-label" onclick="resetToCurrent()" title="Tap to jump back to current period">Today</span>
-      <button class="nav-arrow" id="btn-forward" onclick="shiftWindow(1)" aria-label="Next period" disabled>&#9654;</button>
-    </div>
-  </section>
-
-  <!-- Primary KPI Cards -->
-  <section class="kpi-grid">
-    <div class="kpi-card">
-      <span class="kpi-label">Window Solar</span>
-      <span class="kpi-value val-solar" id="kpi-solar">-- kWh</span>
-      <span class="kpi-sub" id="kpi-peak">Peak: -- kW</span>
-    </div>
-    <div class="kpi-card">
-      <span class="kpi-label">Window Home</span>
-      <span class="kpi-value val-home" id="kpi-home">-- kWh</span>
-      <span class="kpi-sub" id="kpi-live-home">Live: -- kW</span>
-    </div>
-    <div class="kpi-card">
-      <span class="kpi-label">Window Net Grid</span>
-      <span class="kpi-value" id="kpi-net">-- kWh</span>
-      <span class="kpi-sub" id="kpi-net-dir">--</span>
-    </div>
-    <div class="kpi-card">
-      <span class="kpi-label">Live PVS6 Output</span>
-      <span class="kpi-value val-solar" id="kpi-live-solar">-- kW</span>
-      <span class="kpi-sub" id="kpi-last-seen">Updated: --</span>
-    </div>
-  </section>
-
-  <!-- Chart -->
-  <section class="chart-card">
-    <div class="chart-header">
-      <span id="chart-title">15-Min Avg Power (kW)</span>
-      <span id="chart-points">-- pts</span>
-    </div>
-    <div class="chart-wrapper">
-      <canvas id="solarChart"></canvas>
-    </div>
-    <div class="loading-overlay" id="loading-overlay">Loading telemetry...</div>
-  </section>
-
-  <!-- Hardware & Microinverter Diagnostics -->
-  <section class="diag-grid">
-    <div class="diag-pill">
-      <span class="diag-title">Inverters</span>
-      <span class="diag-val" id="diag-inv">-- / --</span>
-      <span class="diag-sub" id="diag-spread">Spread: -- W</span>
-    </div>
-    <div class="diag-pill">
-      <span class="diag-title">Grid Voltage</span>
-      <span class="diag-val" id="diag-v12">-- V</span>
-      <span class="diag-sub">Split-Phase L1-L2</span>
-    </div>
-    <div class="diag-pill">
-      <span class="diag-title">Peak Inv Temp</span>
-      <span class="diag-val" id="diag-temp">-- °C</span>
-      <span class="diag-sub" id="diag-temp-f">-- °F</span>
-    </div>
-  </section>
-
-  <footer class="footer-totals">
-    <span>Today: <strong id="ft-today">-- kWh</strong></span>
-    <span>MTD: <strong id="ft-month">-- kWh</strong></span>
-    <span>Lifetime: <strong id="ft-ltea">-- MWh</strong></span>
-  </footer>
-
-  <script>
-    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxJrlCZdRJVQqRVxq1yOJ5U6mQLz32M4HT3Ci8HoaSKrM5cCaYzrEv6a5MEwggWd1Ap/exec';
-    const SECRET_STORAGE_KEY = 'pvs6_pwa_app_secret';
-
-    let currentMode = 'day';
-    let currentOffset = 0;
-    let solarChartInstance = null;
-
-    function getAppSecret(forcePrompt = false) {
-      let key = localStorage.getItem(SECRET_STORAGE_KEY);
-      if (!key || forcePrompt) {
-        const input = prompt('Enter your Apps Script Secret Key:', key || '');
-        if (input !== null) {
-          key = input.trim();
-          localStorage.setItem(SECRET_STORAGE_KEY, key);
-        }
-      }
-      return key || '';
-    }
-
-    function configureAppSecret() {
-      const updated = getAppSecret(true);
-      if (updated) fetchSolarData();
-    }
-
-    function setMode(newMode) {
-      if (currentMode === newMode && currentOffset === 0) return;
-      currentMode = newMode;
-      currentOffset = 0;
-      document.querySelectorAll('.mode-btn').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.mode === currentMode);
-      });
-      updateScannerUI();
-      fetchSolarData();
-    }
-
-    function shiftWindow(delta) {
-      if (currentOffset + delta > 0) return;
-      currentOffset += delta;
-      updateScannerUI();
-      fetchSolarData();
-    }
-
-    function resetToCurrent() {
-      if (currentOffset === 0) return;
-      currentOffset = 0;
-      updateScannerUI();
-      fetchSolarData();
-    }
-
-    function getLocalWindowLabel(mode, offset) {
-      const now = new Date();
-      if (mode === 'day') {
-        const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
-        const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-        if (offset === 0) return `Today (${dateStr})`;
-        if (offset === -1) return `Yesterday (${dateStr})`;
-        return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-      }
-      if (mode === 'week') {
-        const sun = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay() + (offset * 7));
-        const sat = new Date(sun.getFullYear(), sun.getMonth(), sun.getDate() + 6);
-        const sFmt = sun.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        const eFmt = sat.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-        return (offset === 0) ? `This Week (${sFmt} – ${eFmt})` : `${sFmt} – ${eFmt}`;
-      }
-      if (mode === 'month') {
-        const m = new Date(now.getFullYear(), now.getMonth() + offset, 1);
-        return m.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-      }
-      return '';
-    }
-
-    function updateScannerUI() {
-      document.getElementById('period-label').textContent = getLocalWindowLabel(currentMode, currentOffset);
-      document.getElementById('btn-forward').disabled = (currentOffset >= 0);
-      document.getElementById('chart-title').textContent = (currentMode === 'day')
-        ? '15-Min Avg Power (kW) — Midnight to Now'
-        : 'Daily Energy Totals (kWh)';
-    }
-
-    async function fetchSolarData() {
+async function fetchSolarData() {
       const secretKey = getAppSecret(false);
       if (!secretKey) {
         document.getElementById('status-dot').style.backgroundColor = '#ef4444';
@@ -470,7 +13,7 @@
         const response = await fetch(url);
         const data = await response.json();
 
-        if (data.status === 'unauthorized') {
+        if (data.status === 'unauthorized' || data.error === 'Unauthorized') {
           document.getElementById('status-dot').style.backgroundColor = '#ef4444';
           alert('Unauthorized: Incorrect App Secret key.');
           const retryKey = getAppSecret(true);
@@ -478,7 +21,9 @@
           return;
         }
 
-        if (data.status !== 'ok') throw new Error(data.message || 'Backend error');
+        if (data.status === 'error' || data.error) {
+          throw new Error(data.message || data.error || 'Backend error');
+        }
 
         if (data.periodLabel) {
           document.getElementById('period-label').textContent = data.periodLabel;
@@ -489,6 +34,7 @@
         document.getElementById('status-dot').style.backgroundColor = '#10b981';
       } catch (err) {
         console.error('Error fetching solar data:', err);
+        alert('Error: ' + err.message);
         document.getElementById('status-dot').style.backgroundColor = '#ef4444';
       } finally {
         overlay.classList.remove('visible');
@@ -496,14 +42,19 @@
     }
 
     function updateKPIs(data) {
-      const s = data.summary || {};
-      const latest = data.latest;
+      // Support both V5 (data.summary) and older flat Code.gs payloads
+      const s = data.summary || data.totals || data || {};
+      const latest = data.latest || data.current || null;
 
-      document.getElementById('kpi-solar').textContent = `${(s.windowSolarKwh ?? 0).toFixed(2)} kWh`;
-      document.getElementById('kpi-peak').textContent  = `Peak: ${(s.peakSolarKw ?? 0).toFixed(2)} kW`;
-      document.getElementById('kpi-home').textContent  = `${(s.windowHomeKwh ?? 0).toFixed(2)} kWh`;
+      const winSolar = Number(s.windowSolarKwh ?? s.dailySolarKwh ?? s.solarKwh ?? 0);
+      const peakKw   = Number(s.peakSolarKw    ?? s.peakKw        ?? 0);
+      const winHome  = Number(s.windowHomeKwh  ?? s.dailyHomeKwh  ?? s.homeKwh  ?? 0);
+      const netKwh   = Number(s.windowNetKwh   ?? s.dailyNetKwh   ?? (winHome - winSolar));
 
-      const netKwh = s.windowNetKwh ?? 0;
+      document.getElementById('kpi-solar').textContent = `${winSolar.toFixed(2)} kWh`;
+      document.getElementById('kpi-peak').textContent  = `Peak: ${peakKw.toFixed(2)} kW`;
+      document.getElementById('kpi-home').textContent  = `${winHome.toFixed(2)} kWh`;
+
       const netEl = document.getElementById('kpi-net');
       const netDirEl = document.getElementById('kpi-net-dir');
       netEl.textContent = `${Math.abs(netKwh).toFixed(2)} kWh`;
@@ -517,47 +68,61 @@
       }
 
       if (latest) {
-        document.getElementById('kpi-live-solar').textContent = `${latest.solarKw.toFixed(2)} kW`;
-        document.getElementById('kpi-live-home').textContent  = `Live: ${latest.homeKw.toFixed(2)} kW`;
-        const tStr = new Date(latest.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        document.getElementById('kpi-last-seen').textContent  = `Last log: ${tStr}`;
+        const liveSolar = Number(latest.solarKw ?? latest.solarProduction ?? latest.solar ?? 0);
+        const liveHome  = Number(latest.homeKw  ?? latest.homeUsage       ?? latest.home  ?? 0);
+        const gridV12   = Number(latest.gridV12 ?? 0);
+        const maxTempC  = Number(latest.maxTempC ?? 0);
+        const prodLtea  = Number(latest.prodLteaKwh ?? 0);
+
+        document.getElementById('kpi-live-solar').textContent = `${liveSolar.toFixed(2)} kW`;
+        document.getElementById('kpi-live-home').textContent  = `Live: ${liveHome.toFixed(2)} kW`;
+
+        if (latest.timestamp) {
+          const tStr = new Date(latest.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          document.getElementById('kpi-last-seen').textContent = `Last log: ${tStr}`;
+        }
 
         const invEl = document.getElementById('diag-inv');
-        if (latest.invTotal != null && latest.invTotal > 0) {
-          invEl.textContent = `${latest.invOnline} / ${latest.invTotal}`;
+        if (latest.invTotal != null && Number(latest.invTotal) > 0) {
+          invEl.textContent = `${latest.invOnline ?? 0} / ${latest.invTotal}`;
           invEl.style.color = (latest.invOnline === latest.invTotal) ? '#10b981' : '#f59e0b';
-          document.getElementById('diag-spread').textContent = `Spread: ${latest.spreadW ?? 0} W`;
+          document.getElementById('diag-spread').textContent = `Spread: ${Number(latest.spreadW ?? 0).toFixed(0)} W`;
         }
 
-        if (latest.gridV12 > 0) {
-          document.getElementById('diag-v12').textContent = `${latest.gridV12.toFixed(1)} V`;
+        if (gridV12 > 0) {
+          document.getElementById('diag-v12').textContent = `${gridV12.toFixed(1)} V`;
         }
 
-        if (latest.maxTempC > 0) {
-          const tempF = (latest.maxTempC * 9 / 5) + 32;
-          document.getElementById('diag-temp').textContent = `${latest.maxTempC.toFixed(1)} °C`;
+        if (maxTempC > 0) {
+          const tempF = (maxTempC * 9 / 5) + 32;
+          document.getElementById('diag-temp').textContent = `${maxTempC.toFixed(1)} °C`;
           document.getElementById('diag-temp-f').textContent = `${tempF.toFixed(1)} °F`;
         }
 
-        if (latest.prodLteaKwh > 0) {
-          const mwh = latest.prodLteaKwh / 1000.0;
+        if (prodLtea > 0) {
+          const mwh = prodLtea / 1000.0;
           document.getElementById('ft-ltea').textContent = `${mwh.toFixed(2)} MWh`;
         }
       }
 
-      document.getElementById('ft-today').textContent = `${(s.todaySolarKwh ?? 0).toFixed(2)} kWh`;
-      document.getElementById('ft-month').textContent = `${(s.monthSolarKwh ?? 0).toFixed(2)} kWh`;
-      document.getElementById('chart-points').textContent = `${(data.series || []).length} intervals`;
+      const todaySolar = Number(s.todaySolarKwh ?? s.dailySolarKwh ?? winSolar);
+      const monthSolar = Number(s.monthSolarKwh ?? s.monthlySolarKwh ?? 0);
+
+      document.getElementById('ft-today').textContent = `${todaySolar.toFixed(2)} kWh`;
+      document.getElementById('ft-month').textContent = `${monthSolar.toFixed(2)} kWh`;
+
+      const seriesArr = data.series || data.history || data.data || [];
+      document.getElementById('chart-points').textContent = `${seriesArr.length} intervals`;
     }
 
     function renderChart(data) {
       const ctx = document.getElementById('solarChart').getContext('2d');
-      const series = data.series || [];
-      const labels = series.map(pt => pt.label);
-      const solarVals = series.map(pt => pt.solar);
-      const homeVals  = series.map(pt => pt.home);
+      const series = data.series || data.history || data.data || [];
+      const labels = series.map(pt => pt.label || pt.time || '');
+      const solarVals = series.map(pt => Number(pt.solar ?? pt.solarProduction ?? 0));
+      const homeVals  = series.map(pt => Number(pt.home  ?? pt.homeUsage       ?? 0));
 
-      const isDayMode = (data.mode === 'day');
+      const isDayMode = (data.mode || currentMode) === 'day';
       const chartType = isDayMode ? 'line' : 'bar';
       const unit = data.unit || (isDayMode ? 'kW' : 'kWh');
 
@@ -612,7 +177,8 @@
               borderWidth: 1,
               callbacks: {
                 label: function(context) {
-                  return `${context.dataset.label}: ${context.parsed.y.toFixed(2)} ${unit}`;
+                  const val = Number(context.parsed?.y ?? 0);
+                  return `${context.dataset.label}: ${val.toFixed(2)} ${unit}`;
                 }
               }
             }
@@ -641,14 +207,3 @@
         }
       });
     }
-
-    window.addEventListener('DOMContentLoaded', () => {
-      updateScannerUI();
-      fetchSolarData();
-      setInterval(() => {
-        if (currentOffset === 0) fetchSolarData();
-      }, 300000);
-    });
-  </script>
-</body>
-</html>
